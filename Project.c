@@ -113,7 +113,10 @@ int main(void) {
 
     waitSeconds(3);
 
+
     while (1) {
+        draw_border();
+        clear_screen();
         draw();
         PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port RVALID
         RVALID = PS2_data & 0x8000; // extract the RVALID field
@@ -189,16 +192,27 @@ void draw() {
 
 void draw_border() {
     int x, y;
-    // Drawing the wider border
+    // Drawing the border
+    // Top and bottom borders
     for (x = 0; x < 320; x++) {
+        // Top border
         for (y = 0; y < 4; y++) {
-            plot_pixel(x, y, 0);           // Top border
+            plot_pixel(x, y, 0); 
+        }
+        // Bottom border
+        for (y = 0; y < 4; y++) {
+            plot_pixel(x, 239 - y, 0xFFFF); 
         }
     }
+    // Left and right borders
     for (y = 0; y < 240; y++) {
+        // Left border
         for (x = 0; x < 4; x++) {
-            plot_pixel(x, y, 0);           // Left border
-            plot_pixel(319 - x, y, 0);     // Right border
+            plot_pixel(x, y, 0); 
+        }
+        // Right border
+        for (x = 0; x < 4; x++) {
+            plot_pixel(319 - x, y, 0); 
         }
     }
 }
@@ -315,14 +329,19 @@ void display_points() {
 			 			  seven_seg_decode_table[points%10];
 }
 
-void waitSeconds(int pow_fraction) {
-    unsigned int t = TIMERSEC >> pow_fraction;
+void waitSeconds(int seconds) {
+    unsigned int cycles = TIMERSEC * seconds;
+    // Configure the timer
     timer->control = 0x8; // stop the timer
     timer->status = 0; // reset TO
-    timer->periodlo = (t & 0x0000FFFF);
-    timer->periodhi = (t & 0xFFFF0000) >> 16;
+    timer->periodlo = cycles & 0x0000FFFF;
+    timer->periodhi = (cycles & 0xFFFF0000) >> 16;
     timer->control = 0x4;
+    
+    // Wait until the timer expires
     while ((timer->status & 0x1) == 0);
+    
+    // Reset the timer status
     timer->status = 0; // reset TO
 }
 
