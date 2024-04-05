@@ -4,23 +4,23 @@
 #define PS2_BASE			0xFF200100
 #define HEX3_HEX0_BASE		0xFF200020
 #define TIMERSEC 100000000
-#define RED     0xA840
-#define GREEN   0x07E0
-#define BLUE    0xF800
-#define YELLOW  0x001F
-#define ORANGE  0xF81F
-#define PURPLE  0x07FF
-#define GRAY    0x39E7 // Gray color
+#define PURPLE  0x07FF   // Purple color
+#define RED     0xF800   // Red color
+#define ORANGE  0xFA00   // Orange color
+#define YELLOW  0xFFE0   // Yellow color
+#define GREEN   0x07E0   // Green color
+#define BLUE    0x001F   // Blue color
+#define GRAY    0x39E7   // Gray color
 
 volatile int *LEDR_ptr = 0xFF200000;
 int pixel_buffer_start;       // global variable
 short int Buffer1[240][512];  // 240 rows, 512 (320 + padding) columns
 short int Buffer2[240][512];
-short int colour[7];
+//short int colour[7];
 static int ball_x = 160; // Initial x position of the ball
 static int ball_y = 200; // Initial y position of the ball
-static int ball_dx = 8;  // Initial x direction of the ball
-static int ball_dy = 8;  // Initial y direction of the ball
+static int ball_dx = 10;  // Initial x direction of the ball
+static int ball_dy = 10;  // Initial y direction of the ball
 static int slab_width = 50; // Width of the slab
 static int slab_height = 5; // Height of the slab
 static int slab_x = 135; // Initial x position of the slab
@@ -29,14 +29,6 @@ int player_lives = 3;
 int x_box[64];
 int y_box[64];
 int points;
-
-int board[5][5] = {
-        {5, 5, 5, 5, 5},
-        {4, 4, 4, 4, 4},
-        {3, 3, 3, 3, 3},
-        {2, 2, 2, 2, 2},
-        {1, 1, 1, 1, 1}
-    };
 
 void wait_for_vsync();
 void draw_initial_tiles();
@@ -54,6 +46,24 @@ void waitSeconds();
 void draw_board();
 unsigned short int startscreen();
 unsigned short int endscreen();
+void initialize_tiles();
+
+enum Color { COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW, COLOR_ORANGE, COLOR_PURPLE, COLOR_GRAY };
+
+struct Tile {
+    int x;          // X coordinate of the tile
+    int y;          // Y coordinate of the tile
+    int width;      // Width of the tile
+    int height;     // Height of the tile
+    int strength;   // Strength level of the tile
+    bool active;    // Flag to indicate if the tile is active or destroyed
+	enum Color color;
+};
+
+// Define an array to store tile data
+struct Tile tiles[8][7]; // 8 columns, 7 rows
+
+short int color[7] = {RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, GRAY};
 
 struct image{
     unsigned short volatile pixels[240][320];
@@ -69,6 +79,18 @@ struct timer_t {
     volatile unsigned int snaplo;
     volatile unsigned int snaphi;
 };
+
+int board[7][8] = {
+    {3, 3, 3, 3, 3, 3, 3, 3}, // Strength level 3 tiles
+    {2, 2, 2, 2, 2, 2, 2, 2}, // Strength level 2 tiles
+    {2, 2, 2, 2, 2, 2, 2, 2}, // Strength level 2 tiles
+    {2, 2, 2, 2, 2, 2, 2, 2}, // Strength level 2 tiles
+    {1, 1, 1, 1, 1, 1, 1, 1}, // Strength level 1 tiles
+    {1, 1, 1, 1, 1, 1, 1, 1}, // Strength level 1 tiles
+    {1, 1, 1, 1, 1, 1, 1, 1}  // Strength level 1 tiles
+};
+
+short int colour[3] = {RED, YELLOW, BLUE};
 
 int main(void) {
     while(1){
@@ -97,43 +119,43 @@ int main(void) {
         clear_screen();  // pixel_buffer_start points to the pixel buffer
         populate_color();
         
-        draw_initial_tiles();
+		initialize_tiles(); // Initialize tiles
         display_points();
 
-        while(1){
-            struct image framebuffer; // Create an instance of the frame buffer
+        // while(1){
+        //     struct image framebuffer; // Create an instance of the frame buffer
 
-            // Call startscreen function to draw the start screen
-            startscreen(&framebuffer);
+        //     // Call startscreen function to draw the start screen
+        //     startscreen(&framebuffer);
 
-            wait_for_vsync();  // swap front and back buffers on VGA vertical sync
-            pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
+        //     wait_for_vsync();  // swap front and back buffers on VGA vertical sync
+        //     pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
 
-            bool is_key_pressed = false; // Flag to indicate if a key is pressed
+        //     bool is_key_pressed = false; // Flag to indicate if a key is pressed
 
-            while (!is_key_pressed) {
-                PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
-                int RVALID = PS2_data & 0x8000; // extract the RVALID field
-                if (RVALID != 0) {
-                    // Key press detected
-                    byte1 = byte2;
-                    byte2 = byte3;
-                    byte3 = PS2_data & 0xFF;
+        //     while (!is_key_pressed) {
+        //         PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
+        //         int RVALID = PS2_data & 0x8000; // extract the RVALID field
+        //         if (RVALID != 0) {
+        //             // Key press detected
+        //             byte1 = byte2;
+        //             byte2 = byte3;
+        //             byte3 = PS2_data & 0xFF;
 
-                    // Check if the key pressed is the space bar (scan code 0x29)
-                    if (byte3 == 0x29) {
-                        is_key_pressed = true; // Set the flag to true
-                    }
-                }
-            }
+        //             // Check if the key pressed is the space bar (scan code 0x29)
+        //             if (byte3 == 0x29) {
+        //                 is_key_pressed = true; // Set the flag to true
+        //             }
+        //         }
+        //     }
 
-            if(is_key_pressed){
-                break;
-            }
+        //     if(is_key_pressed){
+        //         break;
+        //     }
 
-        }
+        // }
 
-        waitSeconds(2);
+        // waitSeconds(2);
 
 
         while (1) {
@@ -171,37 +193,37 @@ int main(void) {
             pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
         }
 
-        while(1){
-                struct image framebuffer; // Create an instance of the frame buffer
+        // while(1){
+        //         struct image framebuffer; // Create an instance of the frame buffer
 
-                // Call startscreen function to draw the start screen
-                endscreen(&framebuffer);
+        //         // Call startscreen function to draw the start screen
+        //         endscreen(&framebuffer);
 
-                wait_for_vsync();  // swap front and back buffers on VGA vertical sync
-                pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
+        //         wait_for_vsync();  // swap front and back buffers on VGA vertical sync
+        //         pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
 
-                bool is_key_pressed = false; // Flag to indicate if a key is pressed
+        //         bool is_key_pressed = false; // Flag to indicate if a key is pressed
 
-                while (!is_key_pressed) {
-                    PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
-                    int RVALID = PS2_data & 0x8000; // extract the RVALID field
-                    if (RVALID != 0) {
-                        // Key press detected
-                        byte1 = byte2;
-                        byte2 = byte3;
-                        byte3 = PS2_data & 0xFF;
+        //         while (!is_key_pressed) {
+        //             PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
+        //             int RVALID = PS2_data & 0x8000; // extract the RVALID field
+        //             if (RVALID != 0) {
+        //                 // Key press detected
+        //                 byte1 = byte2;
+        //                 byte2 = byte3;
+        //                 byte3 = PS2_data & 0xFF;
 
-                        // Check if the key pressed is the space bar (scan code 0x29)
-                        if (byte3 == 0x29) {
-                            is_key_pressed = true; // Set the flag to true
-                        }
-                    }
-                }
+        //                 // Check if the key pressed is the space bar (scan code 0x29)
+        //                 if (byte3 == 0x29) {
+        //                     is_key_pressed = true; // Set the flag to true
+        //                 }
+        //             }
+        //         }
 
-                if(is_key_pressed){
-                    break;
-                }
-            }
+        //         if(is_key_pressed){
+        //             break;
+        //         }
+        //     }
     }
 }
 
@@ -221,26 +243,32 @@ void draw() {
     *LEDR_ptr = player_lives;
     clear_screen();
     draw_current_tiles();
-    draw_slab(slab_x, slab_y, slab_width, slab_height, 0);
+    //draw_slab(slab_x, slab_y, slab_width, slab_height, 0);
 
     // Update ball position
     ball_x += ball_dx;
     ball_y += ball_dy;
 
-    // Check for collisions with screen edges, considering the border
-    if (ball_x - 5 <= 3 || ball_x + 5 >= 316)
+	if (ball_x - 5 <= 3 || ball_x + 5 >= 316)
         ball_dx = -ball_dx; // Reverse direction on x-axis
-    if (ball_y + 5 >= 240) {
-        // Ball has reached or gone past the bottom edge of the screen
-        // Reset the ball position to the middle
-        ball_x = 160;
-        ball_y = 120;
-        ball_dy = 8; // Move straight down
-        waitSeconds(1);
-        player_lives--;
-    } else if (ball_y - 5 <= 3) {
+    if (ball_y - 5 <= 3 || ball_y + 5 >= 236) {
         ball_dy = -ball_dy; // Reverse direction on y-axis
     }
+
+    // // Check for collisions with screen edges, considering the border
+    // if (ball_x - 5 <= 3 || ball_x + 5 >= 316)
+    //     ball_dx = -ball_dx; // Reverse direction on x-axis
+    // if (ball_y + 5 >= 240) {
+    //     // Ball has reached or gone past the bottom edge of the screen
+    //     // Reset the ball position to the middle
+    //     ball_x = 160;
+    //     ball_y = 120;
+    //     ball_dy = 8; // Move straight down
+    //     waitSeconds(1);
+    //     player_lives--;
+    // } else if (ball_y - 5 <= 3) {
+    //     ball_dy = -ball_dy; // Reverse direction on y-axis
+    // }
 
     // Check for collision with the slab
     if (ball_y + 5 >= slab_y && ball_y - 5 <= slab_y + slab_height) {
@@ -301,37 +329,113 @@ void populate_color() {
   //colour[7] = 0x4B82;
 }
 
-void draw_initial_tiles() {
-	for (int i = 0; i < 8; i++) {
-		for (int j = 0; j < 7; j++) {
-			draw_box(39*i + 4, j*12 + 4, colour[j]);
-			x_box[7*i + j] = 39*i + 4;
-			y_box[7*i + j] = 12*j + 4;
-		}
-	}
-}
 
-short int color[7] = {RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, GRAY};
-int hits[7] = {6, 5, 4, 3, 2, 1, 0};
-
-
-void draw_board() {
-    for (int i = 0; i < 7; i++) {
-        for (int j = 0; j < 8; j++) {
-            draw_box(j * 39 + 4, i * 12 + 4, color[i]);
+void draw_current_tiles() {
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 7; j++) {
+            struct Tile *tile = &tiles[i][j]; // Get a pointer to the current tile
+            if (tile->active) {
+                draw_box(tile->x, tile->y, tile->color); // Draw the active tile using its color
+            }
         }
     }
 }
 
-void draw_current_tiles() {
-	for (int i = 0; i < 8; i++) {
-		for (int j = 0; j < 7; j++) {
-			if (x_box[7*i + j] == -100) {
-				continue;
-			}
-			draw_box(39*i + 4, j*12 + 4, color[j]);
-		}
-	}
+// Initialize tile data
+void initialize_tiles() {
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 7; j++) {
+            tiles[i][j].x = 39 * i + 4;
+            tiles[i][j].y = 12 * j + 4;
+            tiles[i][j].width = 39;
+            tiles[i][j].height = 12;
+
+            // Set strength and initial color based on row and column
+            switch (j) {
+                case 0:
+                    tiles[i][j].strength = 7; // Purple: 7 hits
+                    tiles[i][j].color = PURPLE;
+                    break;
+                case 1:
+                    tiles[i][j].strength = 6; // Red: 6 hits
+                    tiles[i][j].color = RED;
+                    break;
+                case 2:
+                    tiles[i][j].strength = 5; // Orange: 5 hits
+                    tiles[i][j].color = ORANGE;
+                    break;
+                case 3:
+                    tiles[i][j].strength = 4; // Yellow: 4 hits
+                    tiles[i][j].color = YELLOW;
+                    break;
+                case 4:
+                    tiles[i][j].strength = 3; // Green: 3 hits
+                    tiles[i][j].color = GREEN;
+                    break;
+                case 5:
+                    tiles[i][j].strength = 2; // Blue: 2 hits
+                    tiles[i][j].color = BLUE;
+                    break;
+                case 6:
+                    tiles[i][j].strength = 1; // Gray: 1 hit
+                    tiles[i][j].color = GRAY;
+                    break;
+            }
+
+            // Set tile as active if strength is greater than 0
+            tiles[i][j].active = (tiles[i][j].strength > 0);
+        }
+    }
+}
+
+void check_tile_collision() {
+    if (ball_y - 5 > 88) {
+        return;
+    }
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 7; j++) {
+            struct Tile *tile = &tiles[i][j]; // Get a pointer to the current tile
+            if (tile->active &&
+                ball_x - 5 <= tile->x + tile->width &&
+                ball_x + 5 >= tile->x &&
+                ball_y - 5 <= tile->y + tile->height &&
+                ball_y + 5 >= tile->y) {
+                // Collision detected with tile
+                ball_dy *= -1;
+                tile->strength--; // Decrement the strength of the tile
+                if (tile->strength == 0) {
+                    tile->active = false; // Deactivate the tile if strength reaches zero
+                } else {
+                    switch (tile->strength) {
+                        case 7:
+                            tile->color = PURPLE;
+                            break;
+                        case 6:
+                            tile->color = RED;
+                            break;
+                        case 5:
+                            tile->color = ORANGE;
+                            break;
+                        case 4:
+                            tile->color = YELLOW;
+                            break;
+                        case 3:
+                            tile->color = GREEN;
+                            break;
+                        case 2:
+                            tile->color = BLUE;
+                            break;
+                        case 1:
+                            tile->color = GRAY;
+                            break;
+                    }
+                }
+                points += 5 * tile->strength;
+                display_points();
+                return; // Exit after handling collision with one tile
+            }
+        }
+    }
 }
 
 void draw_box(int x, int y, short int box_color) {
@@ -364,20 +468,7 @@ void draw_slab(int x, int y, int width, int height, short int color) {
     }
 }
 
-void check_tile_collision() {
-	if (ball_y-5 > 88) {
-		return;
-	}
-	for (int i = 0; i < 56; i++) {
-		if ((ball_y-5 <= y_box[i]+12 || ball_y-5 <= y_box[i]) && ball_x-5 >= x_box[i] 
-			&& ball_x+5 <= x_box[i] + 39) {
-			ball_dy *= -1;
-			x_box[i] = -100;
-			points += 5;
-			display_points();
-		}
-	}
-}
+
 
 void wait_for_vsync() {
   volatile int *pixel_ctrl_ptr = (int *)0xff203020;  // base address
