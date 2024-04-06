@@ -265,6 +265,7 @@ int slab_s[] = {-134,-134,-671,-134,-403,0,-1611,537,1343,-671,-537,2417,-671,-9
 
 int main(void) {
     while(1){
+		player_lives = 3;
         volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
 
         *(pixel_ctrl_ptr + 1) = (int)&Buffer1;  // first store the address in the  back buffer
@@ -344,7 +345,8 @@ int main(void) {
 
 
       if (start_game){
-          break;
+		start_game = false;
+        break;
       }
 
 			wait_for_vsync();  // swap front and back buffers on VGA vertical sync
