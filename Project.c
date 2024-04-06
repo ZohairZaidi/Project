@@ -233,6 +233,8 @@ int board[7][8] = {
     {1, 1, 1, 1, 1, 1, 1, 1}  // Strength level 1 tiles
 };
 
+struct image framebuffer; // Create an instance of the frame buffer
+
 int main(void) {
     while(1){
         volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
@@ -254,9 +256,6 @@ int main(void) {
 
         // PS/2 mouse needs to be reset (must be already plugged in)
         *(PS2_ptr) = 0xFF; // reset
-
-        draw_border();
-        clear_screen();  // pixel_buffer_start points to the pixel buffer
         
         initialize_tiles();
         display_points();
@@ -266,8 +265,6 @@ int main(void) {
 
         while(1){
             if (skip) break;
-            struct image framebuffer; // Create an instance of the frame buffer
-
             // Call startscreen function to draw the start screen
             startscreen(&framebuffer);
 
@@ -299,7 +296,6 @@ int main(void) {
 			// Update powerup positions
 			update_powerups();
             draw_border();
-            clear_screen();
             draw();
 
 
@@ -563,6 +559,9 @@ void clear_screen() {
             plot_pixel(x, y, 0xFFFF);
         }
     }
+
+    // // Call startscreen function to draw the start screen
+    // background(&framebuffer);
 }
 
 
