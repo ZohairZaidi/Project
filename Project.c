@@ -176,6 +176,7 @@ void generate_powerups();
 void draw_border();
 void elongate_slab();
 void update_slab_width();
+void write_char(int x, int y, char c);
 unsigned short int startscreen();
 unsigned short int endscreen();
 
@@ -283,15 +284,21 @@ int main(void) {
         in_progress = true;
 
         waitSeconds(2);
-
+		bool initial = false;
 
         while (1) {
+			if (!initial){
+				waitSeconds(2);
+				initial = true;
+			}
 			generate_powerups();
 			// Update powerup positions
 			update_powerups();
             draw_border();
             clear_screen();
             draw();
+
+
 
             if (player_lives == 0) {
                 break;
@@ -378,24 +385,28 @@ void draw() {
 
 	if (ball_x - 5 <= 3 || ball_x + 5 >= 316)
         ball_dx = -ball_dx; // Reverse direction on x-axis
+
     if (ball_y - 5 <= 3 || ball_y + 5 >= 236) {
-        ball_dy = -ball_dy; // Reverse direction on y-axis
+        // Ball has reached or gone past the bottom edge of the screen
+        // Decrease player lives and reset ball position if lives > 0
+        if (player_lives > 0) {
+			waitSeconds(3);
+            ball_x = 160;
+            ball_y = 120;
+            ball_dy = 8; // Move straight down
+            player_lives--;
+        } else {
+            // Game over logic can be added here
+        }
     }
 
-    // // Check for collisions with screen edges, considering the border
-    // if (ball_x - 5 <= 3 || ball_x + 5 >= 316)
+	//Uncomment if you want to remove respawn
+	// if (ball_x - 5 <= 3 || ball_x + 5 >= 316)
     //     ball_dx = -ball_dx; // Reverse direction on x-axis
-    // if (ball_y + 5 >= 240) {
-    //     // Ball has reached or gone past the bottom edge of the screen
-    //     // Reset the ball position to the middle
-    //     ball_x = 160;
-    //     ball_y = 120;
-    //     ball_dy = 8; // Move straight down
-    //     waitSeconds(1);
-    //     player_lives--;
-    // } else if (ball_y - 5 <= 3) {
+    // if (ball_y - 5 <= 3 || ball_y + 5 >= 236) {
     //     ball_dy = -ball_dy; // Reverse direction on y-axis
     // }
+
 
     // Check for collision with the slab
     if (ball_y + 5 >= slab_y && ball_y - 5 <= slab_y + slab_height) {
@@ -910,7 +921,11 @@ void interrupt_handler(void) {
 
 }
 
-
+void write_char(int x, int y, char c) {
+  // VGA character buffer
+  volatile char * character_buffer = (char *) (0x09000000 + (y<<7) + x);
+  *character_buffer = c;
+}
 
 unsigned short int start[240][320] = {
 	{25421,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711,12711},
