@@ -1,6 +1,46 @@
+#ifndef __NIOS2_CTRL_REG_MACROS__
+#define __NIOS2_CTRL_REG_MACROS__ /*****************************************************************************/
+/* Macros for accessing the control registers.                               */
+/*****************************************************************************/
+#define NIOS2_READ_STATUS(dest) \
+  do {                          \
+    dest = __builtin_rdctl(0);  \
+  } while (0)
+#define NIOS2_WRITE_STATUS(src) \
+  do {                          \
+    __builtin_wrctl(0, src);    \
+  } while (0)
+#define NIOS2_READ_ESTATUS(dest) \
+  do {                           \
+    dest = __builtin_rdctl(1);   \
+  } while (0)
+#define NIOS2_READ_BSTATUS(dest) \
+  do {                           \
+    dest = __builtin_rdctl(2);   \
+  } while (0)
+#define NIOS2_READ_IENABLE(dest) \
+  do {                           \
+    dest = __builtin_rdctl(3);   \
+  } while (0)
+#define NIOS2_WRITE_IENABLE(src) \
+  do {                           \
+    __builtin_wrctl(3, src);     \
+  } while (0)
+#define NIOS2_READ_IPENDING(dest) \
+  do {                            \
+    dest = __builtin_rdctl(4);    \
+  } while (0)
+#define NIOS2_READ_CPUID(dest) \
+  do {                         \
+    dest = __builtin_rdctl(5); \
+  } while (0)
+#endif
+
 #include <stdio.h>
 #include <time.h>
 #include <stdbool.h>
+#include <stdlib.h>
+
 #define PS2_BASE			0xFF200100
 #define HEX3_HEX0_BASE		0xFF200020
 #define TIMERSEC 100000000
@@ -12,11 +52,14 @@
 #define BLUE    0x001F   // Blue color
 #define GRAY    0x39E7   // Gray color
 
+#define NORMAL_SLAB_WIDTH 50
+#define ELONGATED_SLAB_WIDTH 100
+#define ELONGATION_DURATION 100000000
+
 volatile int *LEDR_ptr = 0xFF200000;
 int pixel_buffer_start;       // global variable
 short int Buffer1[240][512];  // 240 rows, 512 (320 + padding) columns
 short int Buffer2[240][512];
-//short int colour[7];
 static int ball_x = 160; // Initial x position of the ball
 static int ball_y = 200; // Initial y position of the ball
 static int ball_dx = 10;  // Initial x direction of the ball
@@ -24,17 +67,98 @@ static int ball_dy = 10;  // Initial y direction of the ball
 static int slab_width = 50; // Width of the slab
 static int slab_height = 5; // Height of the slab
 static int slab_x = 135; // Initial x position of the slab
-static int slab_y = 232; // Initial y position of the slab
+static int slab_y = 225; // Initial y position of the slab
 int player_lives = 3;
 int x_box[64];
 int y_box[64];
 int points;
+int PS2_data, RVALID, RE;
+int SCREEN_WIDTH = 320;
+int SCREEN_HEIGHT = 240; 
+int MAX_POWERUPS = 1;
+int POWERUP_WIDTH = 20;
+int POWERUP_HEIGHT = 20;
+int POWERUP_SPEED = 15;
+bool start_game = false; // Flag to indicate if a key is pressed
+bool skip = false;
+bool in_progress = false;
+bool enlarged_slab = false;
+char byte1;
+char byte2;
+char byte3;
+
+unsigned short int extraball_powerup[20][20] = {
+	{65503,65535,65535,65535,65535,65535,65503,65503,65503,65535,65534,65503,65535,65535,63454,65534,65535,65503,65535,65535},
+	{65503,65535,65535,65535,65535,65535,65535,65535,65535,65535,65502,65535,65535,63455,65535,65534,65535,65535,65535,65535},
+	{65503,65535,65535,63487,65535,65535,65535,65535,65535,63422,65535,65534,63453,65534,55002,61341,65503,65535,65535,65503},
+	{65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65501,65532,52757,35855,65470,65535,65535,65535,65535},
+	{65535,65535,65535,65535,65535,65535,65534,65534,65535,65503,65470,65404,50352,65110,65469,65503,65535,65535,65535,65535},
+	{63487,63487,65535,65535,65535,65535,65534,65534,63455,65535,63293,33547,54350,56496,65340,44341,54970,65503,65535,65503},
+	{63487,63487,65535,65535,65535,65535,65534,65534,65535,61310,37937,31402,54318,56464,63195,38035,52857,65503,65535,63454},
+	{63487,65535,65535,65535,65535,65535,65534,65534,65535,29647,61212,65340,50255,65111,65438,65535,65535,65535,65503,65535},
+	{65503,65535,65470,65503,65535,65535,63453,65534,52889,14824,50745,65502,65500,52693,38001,63422,65535,65535,65535,65535},
+	{65535,65502,65535,65535,63422,63455,65534,63486,31727,0,27469,65535,65533,65533,48663,63454,65535,65535,65535,65535},
+	{65502,65503,65535,65535,63455,65535,55002,16968,10597,10565,14791,10630,50808,65535,65535,65535,65535,65535,65535,65535},
+	{65535,65535,65470,65535,65503,54970,12743,4258,6339,12614,23244,21131,10565,52857,65535,63487,65535,65535,65535,65535},
+	{65535,65535,65535,65470,65535,38098,2113,10533,10533,8420,10501,35824,25259,33711,65503,63455,65535,65535,65535,65535},
+	{63487,63487,65502,65470,65535,40179,10533,10533,8388,8388,8355,14694,27371,37969,65535,63455,65535,65535,65535,65535},
+	{63487,65535,65535,65502,65502,38066,23276,14792,8356,10501,8420,12645,25354,33839,65535,63423,65535,65535,65535,65535},
+	{65535,65535,65535,65502,65535,44373,10565,25324,12647,8388,10500,23210,10596,38097,65535,65535,65535,65535,65535,65535},
+	{65535,65535,65535,65535,63454,65535,33840,12678,14759,4194,4226,4226,31727,65535,65535,65535,65535,65535,65535,65535},
+	{65535,65535,65503,65535,65535,63422,65535,44373,42292,44373,44373,44373,65535,65503,65535,65535,65535,65535,65535,65535},
+	{65503,65535,65535,63422,65535,65535,65535,65535,65535,65503,63454,65535,65535,65503,65535,65535,65535,65535,65535,65535},
+	{65535,65503,65535,65535,65503,65535,63454,65503,65503,63422,65535,63454,65503,65535,65535,65503,65535,65535,65535,65535},
+};
+
+unsigned short int extrahealth_powerup[20][20] = {{65535,65503,65535,65535,65502,63487,61406,65502,63487,65535,63487,65535,63454,65535,61439,65534,65535,65535,65502,65535},
+	{63486,65503,63423,65535,65503,63455,65535,65471,65534,65535,65502,65501,65535,65535,65502,65502,61407,63487,63487,65535},
+	{63455,65503,63486,61407,50615,46616,46517,46648,65535,65503,63487,65535,50713,48567,46583,48632,65471,65535,65503,65535},
+	{63487,65438,65534,59036,8484,8354,8288,8517,59260,65501,65503,59262,12548,6305,8323,8388,57082,63487,65503,65535},
+	{65438,65535,44469,12612,57378,57345,59457,57603,10564,52890,50875,8450,59653,57506,55491,57539,14658,42421,63487,65470},
+	{63487,40243,33289,41188,64788,64983,62352,61507,41089,29420,29453,43137,61602,63651,63652,63683,41058,31305,38132,65535},
+	{65535,17065,26624,63878,65535,65372,64560,59489,63619,32899,28802,61506,61635,63620,59556,59522,63588,24577,19018,65535},
+	{65503,21259,30753,63910,61439,60008,61472,63652,61635,63682,63683,61571,61635,59555,61604,63651,63650,26851,21195,65503},
+	{65535,17000,26656,63684,61862,61636,63619,59620,61635,63619,63619,63619,61603,63618,61635,61572,63653,28672,21097,61439},
+	{65471,46582,31500,30753,63586,63683,59523,61570,63586,63714,61635,59523,61634,59587,61603,63681,30785,35563,44502,63487},
+	{65503,65502,46616,18952,49381,59553,61634,63652,63684,59587,61603,61570,61635,61571,59523,51427,18919,46582,63487,63487},
+	{63487,65439,65534,59197,6468,45219,63715,59490,63619,59523,63684,61635,59523,63652,47300,6371,59261,65535,65503,65535},
+	{65501,65535,65535,61405,61180,23178,26624,63716,61571,61666,61603,61571,63716,28672,23113,57182,63423,65503,65502,65535},
+	{65534,63486,65503,65503,65535,44470,33516,32865,63683,63618,63650,61571,34914,33452,42422,65534,65535,65502,65534,65534},
+	{65535,65501,65535,65535,65438,65534,50744,18822,49413,59524,63586,53477,14823,46648,65534,63454,63486,65535,65535,65502},
+	{65535,65535,63486,65534,63487,63454,63487,59262,6437,49347,51394,6435,61311,65534,65470,65535,65503,65503,63487,65535},
+	{65535,65535,65535,65535,65535,65535,65503,63454,59099,21065,21033,59099,65503,65535,65535,65535,65535,65535,65535,65535},
+	{65535,65535,65535,65535,65535,65535,65535,65503,65535,44372,44372,65502,65535,65503,65535,65535,65535,65535,65535,65535},
+	{65535,65535,65535,65535,65535,65535,65535,65535,65535,63454,65502,65535,65535,65535,65535,63455,65535,65535,65535,65535},
+	{65535,65535,65535,65535,65535,65535,65535,65535,63455,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535},
+};
+
+unsigned short int longpad_powerup[20][20] = {
+	{1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,32,32,0,0},
+	{1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{65503,65535,65535,65535,65534,65534,65535,65535,65503,65503,65503,65503,65535,65535,65535,65535,65535,65503,65503,65503},
+	{65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535},
+	{65503,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535},
+	{65503,65535,65535,65535,63487,63486,63486,63486,65535,65535,65535,65535,65535,63487,63487,63487,65534,65534,65534,65535},
+	{65535,65503,65535,65535,63486,63486,63486,63486,63486,65534,65534,65534,65534,63486,63486,63486,63485,63485,63486,63486},
+	{63486,63486,57179,48759,50904,48823,50903,50903,50871,50871,50871,50871,50871,50871,50903,50903,50871,55130,63486,63486},
+	{61437,55194,31983,38321,46837,46836,44691,44756,46804,46803,46804,46803,46803,46803,44755,46772,44596,40306,57210,63485},
+	{61436,53080,31982,36208,32046,32078,34158,32045,32077,32077,34125,32077,34125,32077,32077,34126,38257,40307,55130,63485},
+	{63486,63486,46646,38193,40370,38289,40337,40337,40369,40369,40337,40337,40337,40337,40337,40338,38226,46646,63486,63486},
+	{65535,65535,65534,65534,63485,63485,63485,61436,63484,63485,63485,63485,63485,63485,63485,63485,63485,63486,65534,63486},
+	{65503,65535,65535,65535,63421,65534,63486,63486,65534,65534,65534,65534,65535,65535,63487,63487,63486,65535,65535,63454},
+	{1,1,0,0,32,32,0,32,0,0,0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+};
 
 void wait_for_vsync();
 void draw_initial_tiles();
 void draw_current_tiles();
 void draw_box(int x, int y, short int box_color);
-void populate_color();
 void plot_pixel(int x, int y, short int line_color);
 void draw();
 void clear_screen();
@@ -44,10 +168,18 @@ void check_tile_collision();
 void display_points();
 void waitSeconds();
 void draw_board();
+void initialize_tiles();
+double power(double base, int exponent);
+void the_exception(void) __attribute__((section(".exceptions")));
+void interrupt_handler(void);
+void generate_powerups();
+void draw_border();
+void elongate_slab();
+void update_slab_width();
 unsigned short int startscreen();
 unsigned short int endscreen();
-void initialize_tiles();
 
+enum PowerupType { EXTRA_LIFE, EXTRA_BALL, ENLARGED_SLAB };
 enum Color { COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW, COLOR_ORANGE, COLOR_PURPLE, COLOR_GRAY };
 
 struct Tile {
@@ -59,6 +191,15 @@ struct Tile {
     bool active;    // Flag to indicate if the tile is active or destroyed
 	enum Color color;
 };
+
+struct Powerup {
+    int x;            // X coordinate of the powerup
+    int y;            // Y coordinate of the powerup
+    enum PowerupType type; // Type of the powerup
+    bool active;      // Flag to indicate if the powerup is active
+};
+
+struct Powerup powerups[1];
 
 // Define an array to store tile data
 struct Tile tiles[8][7]; // 8 columns, 7 rows
@@ -90,11 +231,8 @@ int board[7][8] = {
     {1, 1, 1, 1, 1, 1, 1, 1}  // Strength level 1 tiles
 };
 
-short int colour[3] = {RED, YELLOW, BLUE};
-
 int main(void) {
     while(1){
-        player_lives = 3;
         volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
 
         *(pixel_ctrl_ptr + 1) = (int)&Buffer1;  // first store the address in the  back buffer
@@ -107,9 +245,9 @@ int main(void) {
         *(pixel_ctrl_ptr + 1) = (int)&Buffer2;
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // we draw on the back buffer
 
-        volatile int * PS2_ptr = (int *)PS2_BASE; 
-        int PS2_data, RVALID;
-        char byte1 = 0, byte2 = 0, byte3 = 0;	
+        volatile int * PS2_ptr = (int *)PS2_BASE;
+        *(PS2_ptr + 1) = 0x1; 
+        byte1 = 0, byte2 = 0, byte3 = 0;	
         points = 0;
 
         // PS/2 mouse needs to be reset (must be already plugged in)
@@ -117,48 +255,40 @@ int main(void) {
 
         draw_border();
         clear_screen();  // pixel_buffer_start points to the pixel buffer
-        populate_color();
         
-		initialize_tiles(); // Initialize tiles
+        initialize_tiles();
         display_points();
+		*LEDR_ptr = power(2, player_lives) - 1;
+        NIOS2_WRITE_IENABLE(0x80);
+        NIOS2_WRITE_STATUS(1);  // enable Nios II interrupts
 
-        // while(1){
-        //     struct image framebuffer; // Create an instance of the frame buffer
+        while(1){
+            if (skip) break;
+            struct image framebuffer; // Create an instance of the frame buffer
 
-        //     // Call startscreen function to draw the start screen
-        //     startscreen(&framebuffer);
+            // Call startscreen function to draw the start screen
+            startscreen(&framebuffer);
 
-        //     wait_for_vsync();  // swap front and back buffers on VGA vertical sync
-        //     pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
+            wait_for_vsync();  // swap front and back buffers on VGA vertical sync
+            pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
 
-        //     bool is_key_pressed = false; // Flag to indicate if a key is pressed
+            if (start_game){
+                start_game = false;
+                break;
+            }
 
-        //     while (!is_key_pressed) {
-        //         PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
-        //         int RVALID = PS2_data & 0x8000; // extract the RVALID field
-        //         if (RVALID != 0) {
-        //             // Key press detected
-        //             byte1 = byte2;
-        //             byte2 = byte3;
-        //             byte3 = PS2_data & 0xFF;
+        }
 
-        //             // Check if the key pressed is the space bar (scan code 0x29)
-        //             if (byte3 == 0x29) {
-        //                 is_key_pressed = true; // Set the flag to true
-        //             }
-        //         }
-        //     }
+        skip = true;
+        in_progress = true;
 
-        //     if(is_key_pressed){
-        //         break;
-        //     }
-
-        // }
-
-        // waitSeconds(2);
+        waitSeconds(2);
 
 
         while (1) {
+			generate_powerups();
+			// Update powerup positions
+			update_powerups();
             draw_border();
             clear_screen();
             draw();
@@ -166,66 +296,31 @@ int main(void) {
             if (player_lives == 0) {
                 break;
             }
-            
-
-            PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port RVALID
-            RVALID = PS2_data & 0x8000; // extract the RVALID field
-            if (RVALID != 0) {
-
-            /* shift the next data byte into the display */
-            byte1 = byte2;
-            byte2 = byte3;
-            byte3 = PS2_data & 0xFF;
-            if ((byte2 == (char)0xAA) && (byte3 == (char)0x00)) { // mouse inserted; initialize sending of data 
-                *(PS2_ptr) = 0xF4;
-            }
-            if (byte3 == (char)0x74 && byte2 == (char)0xE0) {
-                if (slab_x+50 <= 315)
-                    slab_x += 10;
-            }
-            if (byte3 == (char)0x6B && byte2 == (char)0xE0) {
-                if (slab_x >= 4)
-                    slab_x -= 10;
-            }
-            }
 
             wait_for_vsync();  // swap front and back buffers on VGA vertical sync
             pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
         }
+      
+      in_progress = false;
 
-        // while(1){
-        //         struct image framebuffer; // Create an instance of the frame buffer
+      while(1){
+			struct image framebuffer; // Create an instance of the frame buffer
 
-        //         // Call startscreen function to draw the start screen
-        //         endscreen(&framebuffer);
+			// Call startscreen function to draw the start screen
+			endscreen(&framebuffer);
 
-        //         wait_for_vsync();  // swap front and back buffers on VGA vertical sync
-        //         pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
 
-        //         bool is_key_pressed = false; // Flag to indicate if a key is pressed
+      if (start_game){
+          break;
+      }
 
-        //         while (!is_key_pressed) {
-        //             PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
-        //             int RVALID = PS2_data & 0x8000; // extract the RVALID field
-        //             if (RVALID != 0) {
-        //                 // Key press detected
-        //                 byte1 = byte2;
-        //                 byte2 = byte3;
-        //                 byte3 = PS2_data & 0xFF;
+			wait_for_vsync();  // swap front and back buffers on VGA vertical sync
+			pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
+	   }
+	}	
 
-        //                 // Check if the key pressed is the space bar (scan code 0x29)
-        //                 if (byte3 == 0x29) {
-        //                     is_key_pressed = true; // Set the flag to true
-        //                 }
-        //             }
-        //         }
-
-        //         if(is_key_pressed){
-        //             break;
-        //         }
-        //     }
-    }
 }
+
 
 void plot_pixel(int x, int y, short int line_color) {
   short int *one_pixel_address;
@@ -235,15 +330,47 @@ void plot_pixel(int x, int y, short int line_color) {
   *one_pixel_address = line_color;
 }
 
+void draw_powerup(int x, int *y, enum PowerupType type) {
+    // Draw the powerup based on its type at the specified position (x, y)
+    // You can use different shapes or images to represent different powerup types
+    // For example, draw a different shape (circle, square, etc.) for each type
+
+    if (type == EXTRA_LIFE) { // Use == for comparison, not =
+		// Draw the extra life powerup
+        for (int py = 0; py < 20; py++) {
+            for (int px = 0; px < 20; px++) {
+                plot_pixel(x + px, *y + py, extrahealth_powerup[py][px]);
+            }
+        }
+    }
+	else if (type == EXTRA_BALL) {
+        for (int py = 0; py < 20; py++) {
+            for (int px = 0; px < 20; px++) {
+                plot_pixel(x + px, *y + py, extraball_powerup[py][px]);
+            }
+        }
+    }
+	else if (type == ENLARGED_SLAB ) {
+        for (int py = 0; py < 20; py++) {
+            for (int px = 0; px < 20; px++) {
+                plot_pixel(x + px, *y + py, longpad_powerup[py][px]);
+            }
+        }
+    }
+
+    // Update the y position to make the powerup fall
+    *y += POWERUP_SPEED; // Adjust the value to control the falling speed
+}
+
 void draw() {
     // should erase the previous content of the back buffer, two possible ways:
     // draw black pixels everywhere (slow)‣
     // faster, but harder: erase only what you drew - 2 frames ago!‣
     // for each box i
-    *LEDR_ptr = player_lives;
+    *LEDR_ptr = power(2, player_lives) - 1;
     clear_screen();
     draw_current_tiles();
-    //draw_slab(slab_x, slab_y, slab_width, slab_height, 0);
+    draw_slab(slab_x, slab_y, slab_width, slab_height, 0);
 
     // Update ball position
     ball_x += ball_dx;
@@ -277,9 +404,114 @@ void draw() {
             ball_dy = -ball_dy; // Reverse direction on y-axis
         }
     }
+
+	// Draw active powerups
+    for (int i = 0; i < MAX_POWERUPS; i++) {
+        if (powerups[i].active) {
+            draw_powerup(powerups[i].x, &powerups[i].y, powerups[i].type);
+        }
+    }
+
+
+	// Handle powerup collisions with the slab
+	handle_powerup_collisions();
     check_tile_collision();
+
     // Draw the ball
     draw_ball(ball_x, ball_y, 3, 0); // Adjust the radius and color as needed    
+}
+
+// Function to generate random powerups
+void generate_powerups() {
+    // Generate a random number to determine if a powerup should spawn
+    int rand_num = rand() % 100;
+
+    // Adjust probabilities as needed
+    if (rand_num < 5) {
+        // 10% chance to spawn a powerup
+        int powerup_type = rand() % 3; // Three types of powerups
+        int x_position = rand() % (SCREEN_WIDTH - POWERUP_WIDTH); // Random x position
+        int y_position = 0; // Spawn at the top of the screen
+
+        // Find an inactive powerup slot to store the new powerup
+        for (int i = 0; i < MAX_POWERUPS; i++) {
+            if (!powerups[i].active) {
+                // Activate the powerup and set its position and type
+                powerups[i].active = true;
+                powerups[i].x = x_position;
+                powerups[i].y = y_position;
+                powerups[i].type = powerup_type;
+                break; // Exit loop after finding an empty slot
+            }
+        }
+    }
+}
+
+// Function to update powerup positions
+void update_powerups() {
+    for (int i = 0; i < MAX_POWERUPS; i++) {
+        if (powerups[i].active) {
+            // Update the position of active powerups
+            powerups[i].y += POWERUP_SPEED;
+
+            // Check if the powerup is out of bounds
+            if (powerups[i].y + POWERUP_HEIGHT >= 240) {
+                powerups[i].active = false; // Deactivate powerup if it goes off-screen
+				clear_screen();
+            }
+        }
+    }
+}
+
+// Function to handle powerup collisions with the slab
+void handle_powerup_collisions() {
+    for (int i = 0; i < 1; i++) {
+        if (powerups[i].active &&
+            powerups[i].x + POWERUP_WIDTH >= slab_x &&
+            powerups[i].x <= slab_x + slab_width &&
+            powerups[i].y + POWERUP_HEIGHT >= slab_y &&
+            powerups[i].y <= slab_y + slab_height) {
+            // Collision detected with the slab
+
+            // Activate the powerup effect based on its type
+            switch (powerups[i].type) {
+                case EXTRA_LIFE:
+                    player_lives++;
+                    break;
+				case EXTRA_BALL:
+					//draw_ball(ball_x, ball_y, 3, 0);
+					break;
+				case ENLARGED_SLAB:
+					elongate_slab();
+                	powerups[i].active = false;
+					break;
+                // Add more cases for other powerup types
+            }
+
+            // Deactivate the powerup
+            powerups[i].active = false;
+        }
+    }
+}
+
+
+bool elongated_slab = false;
+int elongation_timer = 0;
+
+void elongate_slab() {
+    slab_width = ELONGATED_SLAB_WIDTH;
+    elongated_slab = true;
+    elongation_timer = ELONGATION_DURATION;
+}
+
+void update_slab_width() {
+    if (elongated_slab) {
+        elongation_timer--;
+        if (elongation_timer <= 0) {
+            slab_width = NORMAL_SLAB_WIDTH;
+            elongated_slab = false;
+        }
+    }
 }
 
 void draw_border() {
@@ -316,17 +548,6 @@ void clear_screen() {
             plot_pixel(x, y, 0xFFFF);
         }
     }
-}
-
-void populate_color() {
-  colour[0] = 0xA840;
-  colour[1] = 0x07e0;
-  colour[2] = 0xf800;
-  colour[3] = 0x001f;
-  colour[4] = 0xf81f;
-  colour[5] = 0x07ff;
-  colour[6] = 0xffe0;
-  //colour[7] = 0x4B82;
 }
 
 
@@ -401,11 +622,19 @@ void check_tile_collision() {
                 ball_y - 5 <= tile->y + tile->height &&
                 ball_y + 5 >= tile->y) {
                 // Collision detected with tile
-                ball_dy *= -1;
+                ball_dy *= -1; // Reverse vertical direction
+                if (ball_dx > 0 && ball_x + 5 >= tile->x && ball_x - 5 <= tile->x) {
+                    // Ball is moving right and collides with the left side of the tile
+                    ball_dx *= -1; // Reverse horizontal direction
+                } else if (ball_dx < 0 && ball_x - 5 <= tile->x + tile->width && ball_x + 5 >= tile->x + tile->width) {
+                    // Ball is moving left and collides with the right side of the tile
+                    ball_dx *= -1; // Reverse horizontal direction
+                }
                 tile->strength--; // Decrement the strength of the tile
                 if (tile->strength == 0) {
                     tile->active = false; // Deactivate the tile if strength reaches zero
                 } else {
+                    // Update tile color based on strength
                     switch (tile->strength) {
                         case 7:
                             tile->color = PURPLE;
@@ -437,6 +666,56 @@ void check_tile_collision() {
         }
     }
 }
+
+// void check_tile_collision() {
+//     if (ball_y - 5 > 88) {
+//         return;
+//     }
+//     for (int i = 0; i < 8; i++) {
+//         for (int j = 0; j < 7; j++) {
+//             struct Tile *tile = &tiles[i][j]; // Get a pointer to the current tile
+//             if (tile->active &&
+//                 ball_x - 5 <= tile->x + tile->width &&
+//                 ball_x + 5 >= tile->x &&
+//                 ball_y - 5 <= tile->y + tile->height &&
+//                 ball_y + 5 >= tile->y) {
+//                 // Collision detected with tile
+//                 ball_dy *= -1;
+//                 tile->strength--; // Decrement the strength of the tile
+//                 if (tile->strength == 0) {
+//                     tile->active = false; // Deactivate the tile if strength reaches zero
+//                 } else {
+//                     switch (tile->strength) {
+//                         case 7:
+//                             tile->color = PURPLE;
+//                             break;
+//                         case 6:
+//                             tile->color = RED;
+//                             break;
+//                         case 5:
+//                             tile->color = ORANGE;
+//                             break;
+//                         case 4:
+//                             tile->color = YELLOW;
+//                             break;
+//                         case 3:
+//                             tile->color = GREEN;
+//                             break;
+//                         case 2:
+//                             tile->color = BLUE;
+//                             break;
+//                         case 1:
+//                             tile->color = GRAY;
+//                             break;
+//                     }
+//                 }
+//                 points += 5 * tile->strength;
+//                 display_points();
+//                 return; // Exit after handling collision with one tile
+//             }
+//         }
+//     }
+// }
 
 void draw_box(int x, int y, short int box_color) {
   bool draw_black = false;
@@ -510,6 +789,125 @@ void waitSeconds(int seconds) {
     
     // Reset the timer status
     timer->status = 0; // reset TO
+}
+
+double power(double base, int exponent) {
+    double result = 1.0;
+    for (int i = 0; i < exponent; i++) {
+        result *= base;
+    }
+    return result;
+}
+
+
+void the_exception(void)
+/*******************************************************************************
+ * Exceptions code. By giving the code a section attribute with the name
+ * ".exceptions" we allow the linker program to locate this code at the proper
+ * exceptions vector address.
+ * This code calls the interrupt handler and later returns from the exception.
+ ******************************************************************************/
+{
+  asm("subi sp, sp, 128");
+  asm("stw et, 96(sp)");
+  asm("rdctl et, ctl4");
+  asm("beq et, r0, SKIP_EA_DEC");  // Interrupt is not external
+  asm("subi ea, ea, 4");           /* Must decrement ea by one instruction
+                                    * for external interupts, so that the
+                                    * interrupted instruction will be run */
+  asm("SKIP_EA_DEC:");
+  asm("stw r1, 4(sp)");  // Save all registers asm("stw r2, 8(sp)");
+  asm("stw r2, 8(sp)");
+  asm("stw r3,  12(sp)");
+  asm("stw r4,  16(sp)");
+  asm("stw r5,  20(sp)");
+  asm("stw r6,  24(sp)");
+  asm("stw r7,  28(sp)");
+  asm("stw r8,  32(sp)");
+  asm("stw r9,  36(sp)");
+  asm("stw r10, 40(sp)");
+  asm("stw r11, 44(sp)");
+  asm("stw r12, 48(sp)");
+  asm("stw r13, 52(sp)");
+  asm("stw r14, 56(sp)");
+  asm("stw r15, 60(sp)");
+  asm("stw r16, 64(sp)");
+  asm("stw r17, 68(sp)");
+  asm("stw r18, 72(sp)");
+  asm("stw r19, 76(sp)");
+  asm("stw r20, 80(sp)");
+  asm("stw r21, 84(sp)");
+  asm("stw r22, 88(sp)");
+  asm("stw r23, 92(sp)");
+  asm("stw r25, 100(sp)");
+  asm("stw r26, 104(sp)");
+  asm("stw r26, 104(sp)");
+  asm("stw r28, 112(sp)");
+  asm("stw r29, 116(sp)");
+  asm("stw r30, 120(sp)");
+  asm("stw r31, 124(sp)");
+  asm("addi   fp,  sp, 128");
+  asm("call interrupt_handler");
+  asm("ldw r1, 4(sp)");
+  asm("ldw r2, 8(sp)");
+  asm("ldw r3, 12(sp)");
+  asm("ldw r4, 16(sp)");
+  asm("ldw r5,  20(sp)");
+  asm("ldw r6,  24(sp)");
+  asm("ldw r7,  28(sp)");
+  asm("ldw r8,  32(sp)");
+  asm("ldw r9,  36(sp)");
+  asm("ldw r10, 40(sp)");
+  asm("ldw r11, 44(sp)");
+  asm("ldw r12, 48(sp)");
+  asm("ldw r13, 52(sp)");
+  asm("ldw r14, 56(sp)");
+  asm("ldw r15, 60(sp)");
+  asm("ldw r16, 64(sp)");
+  asm("ldw r17, 68(sp)");
+  asm("ldw r18, 72(sp)");
+  asm("ldw r19, 76(sp)");
+  asm("ldw r20, 80(sp)");
+  asm("ldw r21, 84(sp)");
+  asm("ldw r22, 88(sp)");
+  asm("ldw r23, 92(sp)");
+  asm("ldw r24, 96(sp)");
+  asm("ldw r25, 100(sp)");
+  asm("ldw r26, 104(sp)");
+
+  asm("ldw r28, 112(sp)");
+  asm("ldw r29, 116(sp)");
+  asm("ldw r30, 120(sp)");
+  asm("ldw r31, 124(sp)");
+
+  asm("addi   sp,  sp, 128");
+  asm("eret");
+}
+
+void interrupt_handler(void) {
+  volatile int *PS2_ptr = (int *)PS2_BASE;
+  PS2_data = *(PS2_ptr);  // read the Data register in the PS/2 port RVALID
+  /* shift the next data byte into the display */
+  byte1 = byte2;
+  byte2 = byte3;
+  byte3 = PS2_data & 0xFF;
+  if ((byte2 == (char)0xAA) &&
+      (byte3 == (char)0x00)) {  // mouse inserted; initialize sending of data
+    *(PS2_ptr) = 0xF4;
+  }
+  if (byte3 == (char)0x74 && byte2 == (char)0xE0) {
+    if (slab_x + 50 <= 315) slab_x += 15;
+  }
+  if (byte3 == (char)0x6B && byte2 == (char)0xE0) {
+    if (slab_x >= 4) slab_x -= 15;
+  }
+
+  if (byte3 == 0x29 && !in_progress) {
+    start_game = true; // Set the flag to true
+  // else, ignore the interrupt
+  return;
+  } 
+
 }
 
 
@@ -1020,3 +1418,140 @@ unsigned short int endscreen(struct image *fbp){
         }
     }
 }
+
+
+
+// int main(void) {
+//     while(1){
+//         player_lives = 3;
+//         volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
+
+//         *(pixel_ctrl_ptr + 1) = (int)&Buffer1;  // first store the address in the  back buffer
+
+//         wait_for_vsync();
+
+//         pixel_buffer_start = *pixel_ctrl_ptr;
+//         clear_screen();  // pixel_buffer_start points to the pixel buffer
+//         draw_border();
+//         *(pixel_ctrl_ptr + 1) = (int)&Buffer2;
+//         pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // we draw on the back buffer
+
+//         volatile int * PS2_ptr = (int *)PS2_BASE; 
+//         int PS2_data, RVALID;
+//         char byte1 = 0, byte2 = 0, byte3 = 0;	
+//         points = 0;
+
+//         // PS/2 mouse needs to be reset (must be already plugged in)
+//         *(PS2_ptr) = 0xFF; // reset
+
+//         draw_border();
+//         clear_screen();  // pixel_buffer_start points to the pixel buffer
+//         populate_color();
+        
+// 		initialize_tiles(); // Initialize tiles
+//         display_points();
+
+//         // while(1){
+//         //     struct image framebuffer; // Create an instance of the frame buffer
+
+//         //     // Call startscreen function to draw the start screen
+//         //     startscreen(&framebuffer);
+
+//         //     wait_for_vsync();  // swap front and back buffers on VGA vertical sync
+//         //     pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
+
+//         //     bool is_key_pressed = false; // Flag to indicate if a key is pressed
+
+//         //     while (!is_key_pressed) {
+//         //         PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
+//         //         int RVALID = PS2_data & 0x8000; // extract the RVALID field
+//         //         if (RVALID != 0) {
+//         //             // Key press detected
+//         //             byte1 = byte2;
+//         //             byte2 = byte3;
+//         //             byte3 = PS2_data & 0xFF;
+
+//         //             // Check if the key pressed is the space bar (scan code 0x29)
+//         //             if (byte3 == 0x29) {
+//         //                 is_key_pressed = true; // Set the flag to true
+//         //             }
+//         //         }
+//         //     }
+
+//         //     if(is_key_pressed){
+//         //         break;
+//         //     }
+
+//         // }
+
+//         // waitSeconds(2);
+
+
+//         while (1) {
+//             draw_border();
+//             clear_screen();
+//             draw();
+
+//             if (player_lives == 0) {
+//                 break;
+//             }
+            
+
+//             PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port RVALID
+//             RVALID = PS2_data & 0x8000; // extract the RVALID field
+//             if (RVALID != 0) {
+
+//             /* shift the next data byte into the display */
+//             byte1 = byte2;
+//             byte2 = byte3;
+//             byte3 = PS2_data & 0xFF;
+//             if ((byte2 == (char)0xAA) && (byte3 == (char)0x00)) { // mouse inserted; initialize sending of data 
+//                 *(PS2_ptr) = 0xF4;
+//             }
+//             if (byte3 == (char)0x74 && byte2 == (char)0xE0) {
+//                 if (slab_x+50 <= 315)
+//                     slab_x += 10;
+//             }
+//             if (byte3 == (char)0x6B && byte2 == (char)0xE0) {
+//                 if (slab_x >= 4)
+//                     slab_x -= 10;
+//             }
+//             }
+
+//             wait_for_vsync();  // swap front and back buffers on VGA vertical sync
+//             pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
+//         }
+
+//         // while(1){
+//         //         struct image framebuffer; // Create an instance of the frame buffer
+
+//         //         // Call startscreen function to draw the start screen
+//         //         endscreen(&framebuffer);
+
+//         //         wait_for_vsync();  // swap front and back buffers on VGA vertical sync
+//         //         pixel_buffer_start = *(pixel_ctrl_ptr + 1);  // new back buffer
+
+//         //         bool is_key_pressed = false; // Flag to indicate if a key is pressed
+
+//         //         while (!is_key_pressed) {
+//         //             PS2_data = *(PS2_ptr); // read the Data register in the PS/2 port
+//         //             int RVALID = PS2_data & 0x8000; // extract the RVALID field
+//         //             if (RVALID != 0) {
+//         //                 // Key press detected
+//         //                 byte1 = byte2;
+//         //                 byte2 = byte3;
+//         //                 byte3 = PS2_data & 0xFF;
+
+//         //                 // Check if the key pressed is the space bar (scan code 0x29)
+//         //                 if (byte3 == 0x29) {
+//         //                     is_key_pressed = true; // Set the flag to true
+//         //                 }
+//         //             }
+//         //         }
+
+//         //         if(is_key_pressed){
+//         //             break;
+//         //         }
+//         //     }
+//     }
+// }
