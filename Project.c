@@ -331,8 +331,6 @@ int main(void) {
       in_progress = false;
 
       while(1){
-			struct image framebuffer; // Create an instance of the frame buffer
-
 			// Call startscreen function to draw the start screen
 			endscreen(&framebuffer);
 
@@ -492,7 +490,7 @@ void update_powerups() {
             // Check if the powerup is out of bounds
             if (powerups[i].y + POWERUP_HEIGHT >= 240) {
                 powerups[i].active = false; // Deactivate powerup if it goes off-screen
-				clear_screen();
+				//clear_screen();
             }
         }
     }
