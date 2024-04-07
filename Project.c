@@ -64,8 +64,8 @@ short int Buffer1[240][512];  // 240 rows, 512 (320 + padding) columns
 short int Buffer2[240][512];
 static int ball_x = 160; // Initial x position of the ball
 static int ball_y = 200; // Initial y position of the ball
-static int ball_dx = 10;  // Initial x direction of the ball
-static int ball_dy = 10;  // Initial y direction of the ball
+static int ball_dx;  // Initial x direction of the ball
+static int ball_dy;  // Initial y direction of the ball
 static int slab_width = 50; // Width of the slab
 static int slab_height = 5; // Height of the slab
 static int slab_x = 135; // Initial x position of the slab
@@ -280,11 +280,14 @@ int lost_s[] = {196,196,1374,2160,3926,4712,4712,2552,4908,2945,-1669,2552,-2650
 	
 int main(void) {
     while(1){
+		init_random_seed();
+		ball_dy = (rand() % 2 == 0) ? -10 : 10; // Randomize y direction
+		ball_dx = (rand() % 2 == 0) ? -10 : 10; // Randomize x direction
 		player_lives = 3;
         volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
 
         *(pixel_ctrl_ptr + 1) = (int)&Buffer1;  // first store the address in the  back buffer
-		init_random_seed();
+		
         wait_for_vsync();
 
         pixel_buffer_start = *pixel_ctrl_ptr;
@@ -420,7 +423,6 @@ void draw_powerup(int x, int *y, enum PowerupType type) {
 }
 
 void draw() {
-	draw_ball(ball_x, ball_y, 4, 0);
     // should erase the previous content of the back buffer, two possible ways:
     // draw black pixels everywhere (slow)‣
     // faster, but harder: erase only what you drew - 2 frames ago!‣
@@ -453,7 +455,8 @@ void draw() {
 			waitSeconds(3);
             ball_x = 160;
             ball_y = 120;
-            ball_dy = 8; // Move straight down
+            ball_dy = (rand() % 2 == 0) ? -10 : 10; // Randomize y direction
+            ball_dx = (rand() % 2 == 0) ? -10 : 10; // Randomize x direction
             player_lives--;
         } else {
             // Game over logic can be added here
