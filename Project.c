@@ -48,7 +48,7 @@
 #define TIMERSEC 100000000
 #define PURPLE  0x07FF   // Purple color
 #define RED     0xF800   // Red color
-#define ORANGE  0xFA00   // Orange color
+#define ORANGE  0x8A2BE2   // Orange color changed
 #define YELLOW  0xFFE0   // Yellow color
 #define GREEN   0x07E0   // Green color
 #define BLUE    0x001F   // Blue color
@@ -120,6 +120,30 @@ unsigned short int extraball_powerup[20][20] = {
 	{65535,65535,65503,65535,65535,63422,65535,44373,42292,44373,44373,44373,65535,65503,65535,65535,65535,65535,65535,65535},
 	{65503,65535,65535,63422,65535,65535,65535,65535,65535,65503,63454,65535,65535,65503,65535,65535,65535,65535,65535,65535},
 	{65535,65503,65535,65535,65503,65535,63454,65503,65503,63422,65535,63454,65503,65535,65535,65503,65535,65535,65535,65535},
+};
+
+unsigned short int doublepoints_powerup [20][20] = {
+	{65535,65535,65502,65535,65503,65503,65503,65503,65535,65535,65534,65534,65535,65535,65535,65535,65535,65535,65535,65535},
+	{63455,65535,65535,65535,65535,65502,65406,63098,56856,65340,65275,61048,63162,65405,65471,65503,65535,65535,65503,65503},
+	{65535,63454,63487,65535,65534,65469,56499,33061,35141,35173,39301,37188,30883,58514,65405,65502,65502,65535,65535,65503},
+	{65535,65535,65534,65534,65274,50256,35076,39108,39075,45348,41122,39041,41155,34978,52304,65307,65502,65534,65535,65503},
+	{65535,65502,65437,58773,37319,34946,39107,41091,38913,41091,36897,36929,41187,36961,32865,39432,56725,65469,65502,65503},
+	{65503,65470,65405,37416,35011,58156,45511,53963,49640,47560,53996,47721,39204,51817,51785,30785,35432,65371,65502,65535},
+	{65471,65471,65210,35206,39334,64690,60658,54417,58515,52208,58709,58644,41610,56239,45479,34979,35206,65209,65470,65502},
+	{65535,65406,64821,35012,41382,52077,56530,48143,54418,48112,54580,54547,37514,52110,45544,32834,35044,62804,65469,65534},
+	{63487,65405,47657,41059,41285,64690,56336,58481,56368,58513,54384,54449,52207,58416,47689,34914,36995,45739,65404,65534},
+	{63486,61048,39173,45187,39107,41382,30883,37287,33060,33125,31109,31141,35336,37319,39237,36994,36995,35077,63129,65534},
+	{63486,65340,47657,36897,41350,64723,50127,54450,48078,52272,52305,48046,56466,52143,60432,39140,36963,39368,65242,65534},
+	{65534,65469,62610,37060,43495,62674,62805,50159,54482,56531,65048,45934,45901,50030,54125,32866,35012,58515,65470,65534},
+	{65534,65469,65144,35140,43495,64657,47851,56401,58644,52305,62902,50159,52110,41447,64690,37221,33126,65114,65470,65502},
+	{65534,65469,65307,35368,41447,49769,39236,60464,49900,49965,47884,45738,47721,51882,62544,31012,35369,65340,65470,65502},
+	{65535,65503,65438,52403,33029,37027,43235,45316,38978,43204,41123,38977,45315,41154,32866,30980,48274,65470,65503,65535},
+	{63487,65535,65503,65439,65048,49900,39107,43236,45220,45220,49412,43138,41154,37090,47819,64983,65438,65535,65503,65535},
+	{65535,63487,65535,65502,65470,65340,50127,30916,37093,39076,43269,37028,30948,50192,65340,65502,65535,65535,65535,65535},
+	{65535,65534,63486,65535,65535,65502,65340,58709,60627,64951,64854,58514,58709,65308,65503,65535,65535,65535,65535,65535},
+	{65502,65535,65502,65535,65535,65502,65502,65502,65469,65469,65469,65469,65501,65502,65502,65535,65535,65535,65535,65535},
+	{65503,65535,65535,65535,65535,65535,63454,65534,65533,63452,65533,65533,65501,65502,65535,65535,65535,65535,65535,65535},
+
 };
 
 unsigned short int extrahealth_powerup[20][20] = {{65535,65503,65535,65535,65502,63487,61406,65502,63487,65535,63487,65535,63454,65535,61439,65534,65535,65535,65502,65535},
@@ -199,7 +223,7 @@ unsigned short int endscreen();
 unsigned short int background();
 unsigned short int helpscreen();
 
-enum PowerupType { EXTRA_LIFE, EXTRA_BALL, ENLARGED_SLAB };
+enum PowerupType { EXTRA_LIFE, DOULBEPOINTS, ENLARGED_SLAB };
 enum Color { COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW, COLOR_ORANGE, COLOR_PURPLE, COLOR_GRAY };
 
 struct Tile {
@@ -403,10 +427,10 @@ void draw_powerup(int x, int *y, enum PowerupType type) {
             }
         }
     }
-	else if (type == EXTRA_BALL) {
+	else if (type == DOULBEPOINTS) {
         for (int py = 0; py < 20; py++) {
             for (int px = 0; px < 20; px++) {
-                plot_pixel(x + px, *y + py, extraball_powerup[py][px]);
+                plot_pixel(x + px, *y + py, doublepoints_powerup[py][px]);
             }
         }
     }
@@ -429,8 +453,9 @@ void draw() {
     // for each box i
     *LEDR_ptr = power(2, player_lives) - 1;
     clear_screen();
+
     draw_current_tiles();
-    draw_slab(slab_x, slab_y, slab_width, slab_height, 0);
+    draw_slab(slab_x, slab_y, slab_width, slab_height, 0x2F4F4F);
 
     // Update ball position
     ball_x += ball_dx;
@@ -517,13 +542,25 @@ void draw() {
     draw_ball(ball_x, ball_y, 4, 0); // Adjust the radius and color as needed    
 }
 
+void clear_screen() {
+    // Clearing the inner area
+    for (int x = 4; x < 316; x++) {
+        for (int y = 4; y < 236; y++) {
+            plot_pixel(x, y, 0xFFFFFF);
+        }
+    }
+
+    // // Call startscreen function to draw the start screen
+    // background(&framebuffer);
+}
+
 // Function to generate random powerups
 void generate_powerups() {
     // Generate a random number to determine if a powerup should spawn
     int rand_num = rand() % 100;
 
     // Adjust probabilities as needed
-    if (rand_num < 1) {
+    if (rand_num < 10) {
         int powerup_type = rand() % 3; // Three types of powerups
         int x_position = rand() % (SCREEN_WIDTH - POWERUP_WIDTH); // Random x position
         int y_position = 0; // Spawn at the top of the screen
@@ -573,12 +610,13 @@ void handle_powerup_collisions() {
                 case EXTRA_LIFE:
                     player_lives++;
                     break;
-				case EXTRA_BALL:
+				case DOULBEPOINTS:
 					// ball2_active = true;
 					// ball2_x = slab_x + (slab_width / 2); // Start the ball from the center of the slab
 					// ball2_y = slab_y - 10; // Position it slightly above the slab
 					// ball2_dx = -8; // Set initial velocity
 					// ball2_dy = -8;
+					points *= 2;
 					break;
 				case ENLARGED_SLAB:
 					elongate_slab();
@@ -638,18 +676,6 @@ void draw_border() {
             plot_pixel(319 - x, y, 0); 
         }
     }
-}
-
-void clear_screen() {
-    // Clearing the inner area
-    for (int x = 4; x < 316; x++) {
-        for (int y = 4; y < 236; y++) {
-            plot_pixel(x, y, 0xFFFF);
-        }
-    }
-
-    // // Call startscreen function to draw the start screen
-    // background(&framebuffer);
 }
 
 
