@@ -374,6 +374,7 @@ int main(void) {
 			// Update powerup positions
 			update_powerups();
             draw_border();
+			update_slab_width();
             draw();
 
 
@@ -633,21 +634,24 @@ void handle_powerup_collisions() {
 
 
 bool elongated_slab = false;
-int elongation_timer = 0;
 
 void elongate_slab() {
     slab_width = ELONGATED_SLAB_WIDTH;
     elongated_slab = true;
-    elongation_timer = ELONGATION_DURATION;
+
+    // Start the timer
+    timer->control = 0; // Disable the timer first
+    timer->periodlo = 5000000; // Set the timer period for 50 MHz clock (1 ms)
+    timer->periodhi = 0;
+    timer->control = 0x7; // Enable the timer with interrupt and continuous mode
 }
 
 void update_slab_width() {
-    if (elongated_slab) {
-        elongation_timer--;
-        if (elongation_timer <= 0) {
-            slab_width = NORMAL_SLAB_WIDTH;
-            elongated_slab = false;
-        }
+    if (elongated_slab && timer->status == 1) {
+        // Timer has elapsed, revert the slab width
+        slab_width = NORMAL_SLAB_WIDTH;
+        elongated_slab = false;
+		timer->control = 0x0; // Disable timer
     }
 }
 
