@@ -392,6 +392,10 @@ int main(void) {
       while(1){
 			// Call startscreen function to draw the start screen
 			endscreen(&framebuffer);
+			slab_width = 50; // Width of the slab
+			slab_height = 5; // Height of the slab
+			slab_x = 135; // Initial x position of the slab
+			slab_y = 230; // Initial y position of the slab
 
 
       if (start_game){
@@ -424,21 +428,28 @@ void draw_powerup(int x, int *y, enum PowerupType type) {
 		// Draw the extra life powerup
         for (int py = 0; py < 20; py++) {
             for (int px = 0; px < 20; px++) {
-                plot_pixel(x + px, *y + py, extrahealth_powerup[py][px]);
+				if(extrahealth_powerup[py][px] != 0) {
+					plot_pixel(x + px, *y + py, extrahealth_powerup[py][px]);
+				}
+                
             }
         }
     }
 	else if (type == DOULBEPOINTS) {
         for (int py = 0; py < 20; py++) {
             for (int px = 0; px < 20; px++) {
-                plot_pixel(x + px, *y + py, doublepoints_powerup[py][px]);
+				if(doublepoints_powerup[py][px] != 0) {
+					plot_pixel(x + px, *y + py, doublepoints_powerup[py][px]);
+				}
             }
         }
     }
 	else if (type == ENLARGED_SLAB ) {
         for (int py = 0; py < 20; py++) {
             for (int px = 0; px < 20; px++) {
-                plot_pixel(x + px, *y + py, longpad_powerup[py][px]);
+				if(longpad_powerup[py][px] != 0){
+					plot_pixel(x + px, *y + py, longpad_powerup[py][px]);
+				}
             }
         }
     }
@@ -639,11 +650,12 @@ void elongate_slab() {
     slab_width = ELONGATED_SLAB_WIDTH;
     elongated_slab = true;
 
-    // Start the timer
-    timer->control = 0; // Disable the timer first
+	timer->control = 0x8; // stop the timer
+    timer->status = 0; // reset TO
+
     timer->periodlo = 500000000 & 0xFFFF; // Lower 16 bits for longer width
     timer->periodhi = (500000000 >> 16) & 0xFFFF;
-    timer->control = 0x7; // Enable the timer with interrupt and continuous mode
+    timer->control = 0x4;
 }
 
 void update_slab_width() {
@@ -652,7 +664,24 @@ void update_slab_width() {
         slab_width = NORMAL_SLAB_WIDTH;
         elongated_slab = false;
 		timer->control = 0x0; // Disable timer
+		printf("done");
     }
+}
+
+void waitSeconds(int seconds) {
+    unsigned int cycles = TIMERSEC * seconds;
+    // Configure the timer
+    timer->control = 0x8; // stop the timer
+    timer->status = 0; // reset TO
+    timer->periodlo = cycles & 0x0000FFFF;
+    timer->periodhi = (cycles & 0xFFFF0000) >> 16;
+    timer->control = 0x4;
+    
+    // Wait until the timer expires
+    while ((timer->status & 0x1) == 0);
+    
+    // Reset the timer status
+    timer->status = 0; // reset TO
 }
 
 void draw_border() {
@@ -923,21 +952,7 @@ void display_points() {
 			 			  seven_seg_decode_table[points%10];
 }
 
-void waitSeconds(int seconds) {
-    unsigned int cycles = TIMERSEC * seconds;
-    // Configure the timer
-    timer->control = 0x8; // stop the timer
-    timer->status = 0; // reset TO
-    timer->periodlo = cycles & 0x0000FFFF;
-    timer->periodhi = (cycles & 0xFFFF0000) >> 16;
-    timer->control = 0x4;
-    
-    // Wait until the timer expires
-    while ((timer->status & 0x1) == 0);
-    
-    // Reset the timer status
-    timer->status = 0; // reset TO
-}
+
 
 double power(double base, int exponent) {
     double result = 1.0;
