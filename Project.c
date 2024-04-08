@@ -641,8 +641,8 @@ void elongate_slab() {
 
     // Start the timer
     timer->control = 0; // Disable the timer first
-    timer->periodlo = 5000000; // Set the timer period for 50 MHz clock (1 ms)
-    timer->periodhi = 0;
+    timer->periodlo = 500000000 & 0xFFFF; // Lower 16 bits for longer width
+    timer->periodhi = (500000000 >> 16) & 0xFFFF;
     timer->control = 0x7; // Enable the timer with interrupt and continuous mode
 }
 
