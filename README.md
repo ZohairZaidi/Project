@@ -1,6 +1,6 @@
 ## WALLBREAKER
 # Introduction:
-The Brick Breaker game is a classic arcade-style game where the player controls a paddle to
+The Wall Breaker (also known as brick breaker) game is a classic arcade-style game where the player controls a paddle to
 bounce a ball to break bricks. This project aims to implement a simple version of the Brick
 Breaker game using C programming language on the NIOS II system.
 # How to Operate:
